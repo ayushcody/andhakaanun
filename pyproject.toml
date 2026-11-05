@@ -5,75 +5,87 @@ description = "AI-powered legal analysis engine for Indian law"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "AndhaKaanun Team" }]
-
-[project.scripts]
-api = "uvicorn apps.api.main:app --host 0.0.0.0 --port 8000"
-
-[tool.setuptools.packages.find]
-include = ["apps*", "packages*"]
+authors = [{ name = "Ayush Chougula" }]
 
 # ── Backend Dependencies ──────────────────────
-[project.dependencies]
-# Core
-fastapi = ">=0.115.0"
-uvicorn = { version = ">=0.32.0", extras = ["standard"] }
-gunicorn = ">=23.0.0"
-pydantic = ">=2.9.0"
-pydantic-settings = ">=2.6.0"
+dependencies = [
+    # Core
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.32.0",
+    "gunicorn>=23.0.0",
+    "pydantic>=2.9.0",
+    "pydantic-settings>=2.6.0",
+    "sse-starlette>=2.1.0",
 
-# Database
-sqlalchemy = { version = ">=2.0.35", extras = ["asyncio"] }
-asyncpg = ">=0.30.0"
-alembic = ">=1.14.0"
-greenlet = ">=3.1.0"
+    # Database
+    "sqlalchemy[asyncio]>=2.0.35",
+    "asyncpg>=0.30.0",
+    "alembic>=1.14.0",
+    "greenlet>=3.1.0",
 
-# AI / ML
-google-generativeai = ">=0.8.0"
-pinecone-client = ">=5.0.0"
-sentence-transformers = ">=3.3.0"
+    # AI / retrieval
+    "groq>=0.11.0",
+    "pinecone>=5.0.0",
+    "sentence-transformers>=3.3.0",
 
-# Caching
-redis = { version = ">=5.2.0", extras = ["hiredis"] }
+    # Caching
+    "redis[hiredis]>=5.2.0",
 
-# NLP
-spacy = ">=3.8.0"
-
-# Utilities
-httpx = ">=0.28.0"
-python-dotenv = ">=1.0.0"
+    # Utilities
+    "httpx>=0.28.0",
+    "python-dotenv>=1.0.0",
+]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.3.0",
     "pytest-asyncio>=0.24.0",
     "pytest-cov>=6.0.0",
-    "httpx>=0.28.0",
     "ruff>=0.8.0",
     "mypy>=1.13.0",
-    "pre-commit>=4.0.0",
 ]
 
+[build-system]
+requires = ["setuptools>=75.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["apps.api*"]
+
+# ── Tooling ───────────────────────────────────
 [tool.ruff]
 target-version = "py311"
 line-length = 100
-select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
-ignore = ["E501"]
+extend-exclude = ["apps/web"]
 
-[tool.ruff.isort]
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",   # long lines are left to the formatter
+    "B008",   # FastAPI's Depends() in argument defaults is the intended pattern
+    "UP042",  # keep (str, Enum): StrEnum changes str() of members
+    "RUF001", # ✓ / ✗ in log messages are intentional
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Scripts that put the project root on sys.path before importing it.
+"packages/legal-data/embed_laws.py" = ["E402"]
+"apps/api/db/migrations/env.py" = ["E402"]
+
+[tool.ruff.lint.isort]
 known-first-party = ["apps", "packages"]
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
+explicit_package_bases = true
+namespace_packages = true
+ignore_missing_imports = true
 warn_unreachable = true
 plugins = ["pydantic.mypy"]
+exclude = ["^apps/web/", "^\\.venv/", "^build/"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
 filterwarnings = ["ignore::DeprecationWarning"]
-
-[build-system]
-requires = ["setuptools>=75.0", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"

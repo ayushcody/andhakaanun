@@ -21,6 +21,8 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
+        # CPU-only PyTorch, so sentence-transformers doesn't pull the CUDA build.
+        pip install torch --index-url https://download.pytorch.org/whl/cpu
         pip install ".[dev]"
         
     - name: Run Ruff (Lint & Format Check)
