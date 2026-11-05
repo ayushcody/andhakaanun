@@ -15,6 +15,7 @@ import json
 import logging
 import sys
 from pathlib import Path
+from typing import Any
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -86,19 +87,21 @@ async def run_pipeline(data_path: str, batch_size: int = 64):
 
         sections = []
         for law in FALLBACK_LAWS.values():
-            sections.append({
-                "section_id": law.section_id,
-                "act": law.act,
-                "number": law.section_number,
-                "title": law.title,
-                "full_text": law.full_text,
-                "simplified": law.simplified,
-                "domain": law.domain,
-                "max_punishment": law.max_punishment,
-                "bailable": law.bailable,
-                "cognizable": law.cognizable,
-                "keywords": law.keywords,
-            })
+            sections.append(
+                {
+                    "section_id": law.section_id,
+                    "act": law.act,
+                    "number": law.section_number,
+                    "title": law.title,
+                    "full_text": law.full_text,
+                    "simplified": law.simplified,
+                    "domain": law.domain,
+                    "max_punishment": law.max_punishment,
+                    "bailable": law.bailable,
+                    "cognizable": law.cognizable,
+                    "keywords": law.keywords,
+                }
+            )
     else:
         with open(data_file) as f:
             sections = json.load(f)
@@ -112,9 +115,7 @@ async def run_pipeline(data_path: str, batch_size: int = 64):
     # Generate embeddings
     embedding_service = get_embedding_service()
     logger.info("Encoding %d chunks (batch_size=%d)...", len(chunks), batch_size)
-    embeddings = embedding_service.encode_sync(
-        chunks, batch_size=batch_size, show_progress=True
-    )
+    embeddings = embedding_service.encode_sync(chunks, batch_size=batch_size, show_progress=True)
     logger.info("✓ Generated %d embeddings (dim=%d)", len(embeddings), len(embeddings[0]))
 
     # Connect to Pinecone
@@ -131,11 +132,13 @@ async def run_pipeline(data_path: str, batch_size: int = 64):
         # Save embeddings locally for later upload
         output = []
         for i, section in enumerate(sections):
-            output.append({
-                "id": section["section_id"],
-                "values": embeddings[i],
-                "metadata": build_metadata(section),
-            })
+            output.append(
+                {
+                    "id": section["section_id"],
+                    "values": embeddings[i],
+                    "metadata": build_metadata(section),
+                }
+            )
 
         output_path = PROJECT_ROOT / "packages" / "legal-data" / "embeddings_output.json"
         with open(output_path, "w") as f:
@@ -144,13 +147,15 @@ async def run_pipeline(data_path: str, batch_size: int = 64):
         return
 
     # Prepare upsert vectors
-    vectors = []
+    vectors: list[tuple[str, list[float], dict[str, Any]]] = []
     for i, section in enumerate(sections):
-        vectors.append((
-            section["section_id"],
-            embeddings[i],
-            build_metadata(section),
-        ))
+        vectors.append(
+            (
+                str(section["section_id"]),
+                embeddings[i],
+                build_metadata(section),
+            )
+        )
 
     # Upsert to Pinecone
     total = await client.upsert(vectors, batch_size=100)

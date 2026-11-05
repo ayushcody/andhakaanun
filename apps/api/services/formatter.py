@@ -5,7 +5,6 @@ Transforms raw analysis output into validated API response schemas.
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 from uuid import UUID
@@ -96,9 +95,7 @@ def format_analysis_response(
         prosecution=prosecution,
         defense=defense,
         consequences=consequences,
-        confidence_score=min(
-            max(float(raw_llm_output.get("confidence_score", 0.3)), 0.0), 1.0
-        ),
+        confidence_score=min(max(float(raw_llm_output.get("confidence_score", 0.3)), 0.0), 1.0),
         missing_info=raw_llm_output.get("missing_info", []),
         from_cache=from_cache,
         disclaimer=raw_llm_output.get("disclaimer", MANDATORY_DISCLAIMER),

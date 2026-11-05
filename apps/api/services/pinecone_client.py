@@ -5,10 +5,9 @@ Handles connection, querying, and upserting with retry logic.
 
 from __future__ import annotations
 
+import functools
 import logging
-from typing import Any, Optional
-
-from apps.api.config import get_settings
+from typing import Any
 
 logger = logging.getLogger("andhakaanun.pinecone")
 
@@ -25,7 +24,8 @@ class PineconeClient:
             index_instance: Pre-initialized Pinecone Index (from app.state).
                             If None, client operates in degraded mode.
         """
-        self._index = index_instance
+        # Any: Pinecone Index, or None in degraded mode (guarded by is_available).
+        self._index: Any = index_instance
 
     @property
     def is_available(self) -> bool:
@@ -119,15 +119,12 @@ class PineconeClient:
         total_upserted = 0
         for i in range(0, len(vectors), batch_size):
             batch = vectors[i : i + batch_size]
-            formatted = [
-                {"id": vid, "values": vec, "metadata": meta}
-                for vid, vec, meta in batch
-            ]
+            formatted = [{"id": vid, "values": vec, "metadata": meta} for vid, vec, meta in batch]
 
             loop = asyncio.get_event_loop()
             await loop.run_in_executor(
                 None,
-                lambda b=formatted: self._index.upsert(vectors=b, namespace=namespace),
+                functools.partial(self._index.upsert, vectors=formatted, namespace=namespace),
             )
             total_upserted += len(batch)
 
@@ -148,7 +145,5 @@ class PineconeClient:
         import asyncio
 
         loop = asyncio.get_event_loop()
-        stats = await loop.run_in_executor(
-            None, self._index.describe_index_stats
-        )
+        stats = await loop.run_in_executor(None, self._index.describe_index_stats)
         return stats.to_dict() if hasattr(stats, "to_dict") else dict(stats)

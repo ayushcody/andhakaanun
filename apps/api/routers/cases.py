@@ -11,10 +11,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse
-from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.config import Settings
-from apps.api.dependencies import get_current_settings, get_db_session
+from apps.api.dependencies import get_current_settings
 from apps.api.models.schemas import (
     AnalysisResponse,
     CaseListItem,
@@ -46,7 +45,7 @@ def _db_case_to_response(case) -> CaseResponse:
         a = case.analysis
 
         laws = []
-        for law in (a.laws or []):
+        for law in a.laws or []:
             laws.append(
                 LawDetail(
                     section=law.get("section", ""),
@@ -163,7 +162,7 @@ async def get_case(
 
             return _db_case_to_response(case)
 
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to retrieve case %s", case_id)
         return JSONResponse(
             status_code=500,
@@ -205,7 +204,11 @@ async def list_cases_endpoint(
                 confidence = None
                 summary_preview = case.input_text[:200]
                 if case.analysis:
-                    confidence = float(case.analysis.confidence_score) if case.analysis.confidence_score else None
+                    confidence = (
+                        float(case.analysis.confidence_score)
+                        if case.analysis.confidence_score
+                        else None
+                    )
                     if case.analysis.summary:
                         summary_preview = case.analysis.summary[:200]
 
@@ -227,6 +230,6 @@ async def list_cases_endpoint(
                 has_next=(page * page_size < total),
             )
 
-    except Exception as e:
+    except Exception:
         logger.exception("Failed to list cases")
         return CaseListResponse(cases=[], total=0, page=page, page_size=page_size, has_next=False)

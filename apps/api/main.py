@@ -14,8 +14,8 @@ from __future__ import annotations
 import logging
 import sys
 import time
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
 import uvicorn
 from fastapi import FastAPI, Request, status
@@ -42,6 +42,7 @@ logger = logging.getLogger("andhakaanun")
 # ──────────────────────────────────────────────
 # Lifespan (startup / shutdown)
 # ──────────────────────────────────────────────
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
@@ -89,8 +90,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
     # --- PostgreSQL connection test ---
     try:
-        from apps.api.db.base import engine
         from sqlalchemy import text
+
+        from apps.api.db.base import engine
 
         async with engine.connect() as conn:
             await conn.execute(text("SELECT 1"))
@@ -121,6 +123,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 # ──────────────────────────────────────────────
 # Application Factory
 # ──────────────────────────────────────────────
+
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
@@ -167,14 +170,11 @@ def create_app() -> FastAPI:
 
     # ── Exception Handlers ───────────────────
     @app.exception_handler(RequestValidationError)
-    async def validation_error_handler(
-        request: Request, exc: RequestValidationError
-    ):
+    async def validation_error_handler(request: Request, exc: RequestValidationError):
         """Transform Pydantic validation errors into our error schema."""
         errors = exc.errors()
         messages = [
-            f"{err.get('loc', ['unknown'])[-1]}: {err.get('msg', 'Invalid')}"
-            for err in errors
+            f"{err.get('loc', ['unknown'])[-1]}: {err.get('msg', 'Invalid')}" for err in errors
         ]
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,

@@ -14,24 +14,25 @@ import json
 import logging
 import time
 import uuid
-from typing import Any, AsyncGenerator
+from collections.abc import AsyncGenerator
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse
 from sse_starlette.sse import EventSourceResponse
 
 from apps.api.config import Settings
-from apps.api.dependencies import get_current_settings, get_db_session
+from apps.api.dependencies import get_current_settings
 from apps.api.models.schemas import (
     AnalysisResponse,
     CaseRequest,
+    ConsequencesDetail,
+    DefenseDetail,
     ErrorCode,
     ErrorDetail,
     ErrorResponse,
     LawDetail,
     ProsecutionDetail,
-    DefenseDetail,
-    ConsequencesDetail,
     RefineRequest,
 )
 from apps.api.services.cache import CacheService
@@ -154,7 +155,7 @@ async def _run_pipeline(
 
     # ── 3. RAG retrieval ────────────────────
     rag_start = time.perf_counter()
-    retrieved, rag_meta = await retrieve_laws(
+    retrieved, _rag_meta = await retrieve_laws(
         query=body.case_text,
         domains=jurisdiction.detected_domains or None,
         top_k=5,
@@ -167,6 +168,7 @@ async def _run_pipeline(
     # ── 4. LLM reasoning ───────────────────
     llm_start = time.perf_counter()
     from apps.api.services.llm_client import LLMClient
+
     llm_client = LLMClient()
     if body.groq_api_key:
         llm_client.set_api_key(body.groq_api_key)
@@ -193,7 +195,11 @@ async def _run_pipeline(
     if db_engine:
         try:
             from apps.api.db.base import async_session_factory
-            from apps.api.db.crud import create_analysis, create_case, create_request_log, update_case_status
+            from apps.api.db.crud import (
+                create_analysis,
+                create_case,
+                create_request_log,
+            )
 
             async with async_session_factory() as session:
                 # Create case
@@ -245,33 +251,41 @@ async def _run_pipeline(
             logger.warning("DB persistence failed (non-blocking): %s", e)
     else:
         from datetime import datetime
-        from apps.api.routers.cases import MOCK_DB
+
         from apps.api.models.schemas import CaseResponse, CaseStatus, JurisdictionInfo
-        response_mock = _build_analysis_response(case_id=case_id, analysis=analysis, from_cache=False)
+        from apps.api.routers.cases import MOCK_DB
+
+        response_mock = _build_analysis_response(
+            case_id=case_id, analysis=analysis, from_cache=False
+        )
         MOCK_DB[str(case_id)] = CaseResponse(
             id=case_id,
             input_text=body.case_text,
             location=body.location,
-            jurisdiction=JurisdictionInfo(country="India", state=body.location, domain=jurisdiction.detected_domains),
+            jurisdiction=JurisdictionInfo(
+                country="India", state=body.location, domain=jurisdiction.detected_domains
+            ),
             status=CaseStatus.COMPLETED,
             created_at=datetime.utcnow(),
-            analysis=response_mock
+            analysis=response_mock,
         )
 
     metadata["total_latency_ms"] = int((time.perf_counter() - start_time) * 1000)
     metadata["case_id"] = str(case_id)
 
     logger.info(
-        json.dumps({
-            "event": "analysis_complete",
-            "case_id": str(case_id),
-            "rag_ms": metadata["rag_latency_ms"],
-            "llm_ms": metadata["llm_latency_ms"],
-            "total_ms": metadata["total_latency_ms"],
-            "confidence": analysis.get("confidence_score"),
-            "laws_retrieved": len(retrieved),
-            "from_cache": False,
-        })
+        json.dumps(
+            {
+                "event": "analysis_complete",
+                "case_id": str(case_id),
+                "rag_ms": metadata["rag_latency_ms"],
+                "llm_ms": metadata["llm_latency_ms"],
+                "total_ms": metadata["total_latency_ms"],
+                "confidence": analysis.get("confidence_score"),
+                "laws_retrieved": len(retrieved),
+                "from_cache": False,
+            }
+        )
     )
 
     return {
@@ -285,6 +299,7 @@ async def _run_pipeline(
 # ──────────────────────────────────────────────
 # SSE Streaming Generator (PRD §6.1)
 # ──────────────────────────────────────────────
+
 
 async def _stream_analysis(
     body: CaseRequest,
@@ -303,60 +318,71 @@ async def _stream_analysis(
         # Event 1: Summary
         yield {
             "event": "summary",
-            "data": json.dumps({
-                "case_id": case_id,
-                "summary": analysis.get("summary", ""),
-                "timeline": analysis.get("timeline", []),
-            }),
+            "data": json.dumps(
+                {
+                    "case_id": case_id,
+                    "summary": analysis.get("summary", ""),
+                    "timeline": analysis.get("timeline", []),
+                }
+            ),
         }
         await asyncio.sleep(0.05)
 
         # Event 2: Laws
         yield {
             "event": "laws",
-            "data": json.dumps({
-                "laws": analysis.get("laws", []),
-            }),
+            "data": json.dumps(
+                {
+                    "laws": analysis.get("laws", []),
+                }
+            ),
         }
         await asyncio.sleep(0.05)
 
         # Event 3: Perspectives
         yield {
             "event": "perspectives",
-            "data": json.dumps({
-                "prosecution": analysis.get("prosecution", {}),
-                "defense": analysis.get("defense", {}),
-            }),
+            "data": json.dumps(
+                {
+                    "prosecution": analysis.get("prosecution", {}),
+                    "defense": analysis.get("defense", {}),
+                }
+            ),
         }
         await asyncio.sleep(0.05)
 
         # Event 4: Complete
         yield {
             "event": "complete",
-            "data": json.dumps({
-                "case_id": case_id,
-                "consequences": analysis.get("consequences", {}),
-                "confidence_score": analysis.get("confidence_score", 0.3),
-                "missing_info": analysis.get("missing_info", []),
-                "from_cache": result.get("from_cache", False),
-                "disclaimer": analysis.get("disclaimer", ""),
-            }),
+            "data": json.dumps(
+                {
+                    "case_id": case_id,
+                    "consequences": analysis.get("consequences", {}),
+                    "confidence_score": analysis.get("confidence_score", 0.3),
+                    "missing_info": analysis.get("missing_info", []),
+                    "from_cache": result.get("from_cache", False),
+                    "disclaimer": analysis.get("disclaimer", ""),
+                }
+            ),
         }
 
     except Exception as e:
         logger.exception("Streaming analysis failed")
         yield {
             "event": "error",
-            "data": json.dumps({
-                "error": "INTERNAL_ERROR",
-                "message": str(e),
-            }),
+            "data": json.dumps(
+                {
+                    "error": "INTERNAL_ERROR",
+                    "message": str(e),
+                }
+            ),
         }
 
 
 # ──────────────────────────────────────────────
 # Route Handler
 # ──────────────────────────────────────────────
+
 
 @router.post(
     "/analyze-case",
@@ -436,6 +462,7 @@ async def analyze_case(
 # Interactive Refinement
 # ──────────────────────────────────────────────
 
+
 @router.post(
     "/cases/{case_id}/refine",
     response_model=AnalysisResponse,
@@ -468,16 +495,28 @@ async def refine_case(
         if not db_engine:
             mock_case = MOCK_DB.get(str(case_id))
             if not mock_case:
-                return JSONResponse(status_code=404, content=ErrorResponse(
-                    detail=ErrorDetail(error=ErrorCode.INTERNAL_ERROR, message=f"Case {case_id} not found.")).model_dump())
+                return JSONResponse(
+                    status_code=404,
+                    content=ErrorResponse(
+                        detail=ErrorDetail(
+                            error=ErrorCode.INTERNAL_ERROR, message=f"Case {case_id} not found."
+                        )
+                    ).model_dump(),
+                )
             case_location = mock_case.location
             new_text = mock_case.input_text
         else:
             async with async_session_factory() as session:
                 case = await get_case_by_id(session, case_id, load_analysis=False)
                 if not case:
-                    return JSONResponse(status_code=404, content=ErrorResponse(
-                        detail=ErrorDetail(error=ErrorCode.INTERNAL_ERROR, message=f"Case {case_id} not found.")).model_dump())
+                    return JSONResponse(
+                        status_code=404,
+                        content=ErrorResponse(
+                            detail=ErrorDetail(
+                                error=ErrorCode.INTERNAL_ERROR, message=f"Case {case_id} not found."
+                            )
+                        ).model_dump(),
+                    )
                 case_location = case.location
                 new_text = case.input_text
 
@@ -489,8 +528,9 @@ async def refine_case(
         if db_engine:
             async with async_session_factory() as session:
                 case = await get_case_by_id(session, case_id, load_analysis=False)
-                case.input_text = new_text
-                await session.commit()
+                if case is not None:
+                    case.input_text = new_text
+                    await session.commit()
         else:
             mock_case = MOCK_DB.get(str(case_id))
             if mock_case:
@@ -498,13 +538,12 @@ async def refine_case(
 
         # Create mock CaseRequest to reuse jurisdiction & RAG
         # For simplicity, we just run the services directly
-        start_time = time.perf_counter()
         jurisdiction = await detect_jurisdiction(new_text, case_location or "")
 
         redis_client = getattr(request.app.state, "redis", None)
         pinecone_index = getattr(request.app.state, "pinecone_index", None)
 
-        retrieved, rag_meta = await retrieve_laws(
+        retrieved, _rag_meta = await retrieve_laws(
             query=new_text,
             domains=jurisdiction.detected_domains or None,
             top_k=5,
@@ -514,6 +553,7 @@ async def refine_case(
         )
 
         from apps.api.services.llm_client import LLMClient
+
         llm_client = LLMClient()
         if body.groq_api_key:
             llm_client.set_api_key(body.groq_api_key)
@@ -577,6 +617,7 @@ async def refine_case(
 # ──────────────────────────────────────────────
 # Quick Jurisdiction Detect (for live badges)
 # ──────────────────────────────────────────────
+
 
 @router.post(
     "/detect-jurisdiction",

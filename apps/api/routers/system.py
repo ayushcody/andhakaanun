@@ -8,7 +8,6 @@ from __future__ import annotations
 import time
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse
 
 from apps.api.config import Settings
 from apps.api.dependencies import get_current_settings
@@ -61,14 +60,10 @@ async def health_check(
             latency = int((time.perf_counter() - start) * 1000)
             services["postgresql"] = ServiceHealth(status="ok", latency_ms=latency)
         except Exception as e:
-            services["postgresql"] = ServiceHealth(
-                status="down", message=str(e)
-            )
+            services["postgresql"] = ServiceHealth(status="down", message=str(e))
             overall_status = "degraded"
     else:
-        services["postgresql"] = ServiceHealth(
-            status="down", message="Not initialized"
-        )
+        services["postgresql"] = ServiceHealth(status="down", message="Not initialized")
 
     # --- Redis ---
     redis = getattr(request.app.state, "redis", None)
@@ -79,14 +74,10 @@ async def health_check(
             latency = int((time.perf_counter() - start) * 1000)
             services["redis"] = ServiceHealth(status="ok", latency_ms=latency)
         except Exception as e:
-            services["redis"] = ServiceHealth(
-                status="down", message=str(e)
-            )
+            services["redis"] = ServiceHealth(status="down", message=str(e))
             overall_status = "degraded"
     else:
-        services["redis"] = ServiceHealth(
-            status="down", message="Not initialized"
-        )
+        services["redis"] = ServiceHealth(status="down", message="Not initialized")
 
     # --- Pinecone ---
     pinecone_index = getattr(request.app.state, "pinecone_index", None)
@@ -97,14 +88,10 @@ async def health_check(
             latency = int((time.perf_counter() - start) * 1000)
             services["pinecone"] = ServiceHealth(status="ok", latency_ms=latency)
         except Exception as e:
-            services["pinecone"] = ServiceHealth(
-                status="down", message=str(e)
-            )
+            services["pinecone"] = ServiceHealth(status="down", message=str(e))
             overall_status = "degraded"
     else:
-        services["pinecone"] = ServiceHealth(
-            status="down", message="Not initialized"
-        )
+        services["pinecone"] = ServiceHealth(status="down", message="Not initialized")
 
     if any(s.status == "down" for s in services.values()):
         overall_status = "degraded"

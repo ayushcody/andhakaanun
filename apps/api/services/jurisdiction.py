@@ -12,7 +12,6 @@ from __future__ import annotations
 import logging
 import re
 from dataclasses import dataclass, field
-from typing import Any
 
 logger = logging.getLogger("andhakaanun.jurisdiction")
 
@@ -21,9 +20,11 @@ logger = logging.getLogger("andhakaanun.jurisdiction")
 # Result Type
 # ──────────────────────────────────────────────
 
+
 @dataclass
 class JurisdictionResult:
     """Result of jurisdiction detection."""
+
     detected_domains: list[str] = field(default_factory=list)
     matched_sections: list[str] = field(default_factory=list)
     confidence: float = 0.0
@@ -54,7 +55,6 @@ KEYWORD_MAP: dict[str, list[str]] = {
     "drunken driving": ["MVA_185", "IPC_279"],
     "driving under influence": ["MVA_185"],
     "intoxicated driving": ["MVA_185"],
-
     # Criminal — Violence
     "murder": ["IPC_302"],
     "killed intentionally": ["IPC_302"],
@@ -71,7 +71,6 @@ KEYWORD_MAP: dict[str, list[str]] = {
     "stabbed": ["IPC_307", "IPC_324"],
     "grievous hurt": ["IPC_338", "IPC_325"],
     "serious injury": ["IPC_338", "IPC_325"],
-
     # Criminal — Property
     "theft": ["IPC_378", "IPC_379"],
     "stolen": ["IPC_378", "IPC_379"],
@@ -81,7 +80,6 @@ KEYWORD_MAP: dict[str, list[str]] = {
     "trespass": ["IPC_441", "IPC_447"],
     "pickpocket": ["IPC_378"],
     "shoplifting": ["IPC_378"],
-
     # Criminal — Fraud
     "cheating": ["IPC_420"],
     "fraud": ["IPC_420"],
@@ -93,18 +91,15 @@ KEYWORD_MAP: dict[str, list[str]] = {
     "criminal breach of trust": ["IPC_405", "IPC_406"],
     "embezzlement": ["IPC_405", "IPC_406"],
     "misappropriation": ["IPC_403"],
-
     # Criminal — Defamation
     "defamation": ["IPC_499", "IPC_500"],
     "defamed": ["IPC_499", "IPC_500"],
     "slander": ["IPC_499"],
     "libel": ["IPC_499"],
-
     # Criminal — Kidnapping
     "kidnapping": ["IPC_359", "IPC_363"],
     "abduction": ["IPC_362", "IPC_366"],
     "kidnapped": ["IPC_359", "IPC_363"],
-
     # Criminal — Sexual Offences
     "rape": ["IPC_375", "IPC_376"],
     "sexual assault": ["IPC_354", "IPC_375"],
@@ -113,7 +108,6 @@ KEYWORD_MAP: dict[str, list[str]] = {
     "outraging modesty": ["IPC_354"],
     "voyeurism": ["IPC_354C"],
     "stalking": ["IPC_354D"],
-
     # Cyber
     "hacking": ["IT_66", "IT_43"],
     "hacked": ["IT_66", "IT_43"],
@@ -129,7 +123,6 @@ KEYWORD_MAP: dict[str, list[str]] = {
     "website hacked": ["IT_66", "IT_43"],
     "online fraud": ["IT_66", "IPC_420"],
     "social media abuse": ["IT_66A"],
-
     # Domestic
     "domestic violence": ["PWDVA_2005", "IPC_498A"],
     "dowry": ["IPC_498A", "IPC_304B"],
@@ -139,20 +132,17 @@ KEYWORD_MAP: dict[str, list[str]] = {
     "wife beating": ["IPC_498A", "PWDVA_2005"],
     "marital cruelty": ["IPC_498A"],
     "domestic abuse": ["PWDVA_2005", "IPC_498A"],
-
     # Consumer
     "consumer complaint": ["CPA_2019"],
     "defective product": ["CPA_2019"],
     "unfair trade": ["CPA_2019"],
     "misleading advertisement": ["CPA_2019"],
-
     # Property / Civil
     "property dispute": ["TPA_1882"],
     "land dispute": ["TPA_1882"],
     "encroachment": ["IPC_441", "TPA_1882"],
     "illegal possession": ["TPA_1882"],
     "eviction": ["TPA_1882"],
-
     # Corruption
     "bribery": ["PCA_1988"],
     "corruption": ["PCA_1988"],
@@ -164,21 +154,11 @@ KEYWORD_MAP: dict[str, list[str]] = {
 # Regex Patterns (PRD §4.1)
 # ──────────────────────────────────────────────
 
-SECTION_PATTERN = re.compile(
-    r'\bsection\s+(\d+[A-Za-z]?)\b', re.IGNORECASE
-)
-IPC_PATTERN = re.compile(
-    r'\bIPC\s+(\d+[A-Za-z]?)\b', re.IGNORECASE
-)
-CRPC_PATTERN = re.compile(
-    r'\bCrPC\s+(\d+[A-Za-z]?)\b', re.IGNORECASE
-)
-IT_ACT_PATTERN = re.compile(
-    r'\bIT\s+(?:Act\s+)?(?:Section\s+)?(\d+[A-Za-z]?)\b', re.IGNORECASE
-)
-MVA_PATTERN = re.compile(
-    r'\bMVA?\s+(?:Section\s+)?(\d+[A-Za-z]?)\b', re.IGNORECASE
-)
+SECTION_PATTERN = re.compile(r"\bsection\s+(\d+[A-Za-z]?)\b", re.IGNORECASE)
+IPC_PATTERN = re.compile(r"\bIPC\s+(\d+[A-Za-z]?)\b", re.IGNORECASE)
+CRPC_PATTERN = re.compile(r"\bCrPC\s+(\d+[A-Za-z]?)\b", re.IGNORECASE)
+IT_ACT_PATTERN = re.compile(r"\bIT\s+(?:Act\s+)?(?:Section\s+)?(\d+[A-Za-z]?)\b", re.IGNORECASE)
+MVA_PATTERN = re.compile(r"\bMVA?\s+(?:Section\s+)?(\d+[A-Za-z]?)\b", re.IGNORECASE)
 
 # Domain mapping from act prefix
 ACT_DOMAIN_MAP: dict[str, str] = {
@@ -210,6 +190,7 @@ SECTION_DOMAIN_OVERRIDES: dict[str, str] = {
 # ──────────────────────────────────────────────
 # Confidence Scoring (PRD §4.2)
 # ──────────────────────────────────────────────
+
 
 def compute_input_confidence(
     case_text: str,
@@ -257,6 +238,7 @@ def compute_input_confidence(
 # ──────────────────────────────────────────────
 # Pass 1: Keyword + Regex Matching
 # ──────────────────────────────────────────────
+
 
 def _keyword_pass(case_text: str) -> tuple[set[str], set[str], int, dict[str, list[str]]]:
     """
@@ -316,7 +298,7 @@ def _keyword_pass(case_text: str) -> tuple[set[str], set[str], int, dict[str, li
         section_num = match.group(1)
         # Try to infer act from context around the match
         start = max(0, match.start() - 30)
-        context = case_text[start:match.start()].lower()
+        context = case_text[start : match.start()].lower()
         if "ipc" in context or "penal" in context:
             section_id = f"IPC_{section_num}"
             matched_sections.add(section_id)
@@ -341,35 +323,114 @@ def _keyword_pass(case_text: str) -> tuple[set[str], set[str], int, dict[str, li
 # Entity keywords for domain classification when no keyword matches
 ENTITY_DOMAIN_SIGNALS: dict[str, list[str]] = {
     "traffic_criminal": [
-        "vehicle", "car", "truck", "bus", "bike", "motorcycle", "auto",
-        "road", "highway", "street", "intersection", "signal", "traffic",
-        "driver", "pedestrian", "accident", "collision", "crash", "speed",
+        "vehicle",
+        "car",
+        "truck",
+        "bus",
+        "bike",
+        "motorcycle",
+        "auto",
+        "road",
+        "highway",
+        "street",
+        "intersection",
+        "signal",
+        "traffic",
+        "driver",
+        "pedestrian",
+        "accident",
+        "collision",
+        "crash",
+        "speed",
     ],
     "cyber": [
-        "computer", "laptop", "phone", "mobile", "internet", "online",
-        "website", "email", "password", "account", "social media",
-        "facebook", "instagram", "whatsapp", "twitter", "youtube",
-        "software", "app", "data", "server", "network",
+        "computer",
+        "laptop",
+        "phone",
+        "mobile",
+        "internet",
+        "online",
+        "website",
+        "email",
+        "password",
+        "account",
+        "social media",
+        "facebook",
+        "instagram",
+        "whatsapp",
+        "twitter",
+        "youtube",
+        "software",
+        "app",
+        "data",
+        "server",
+        "network",
     ],
     "domestic": [
-        "husband", "wife", "marriage", "married", "in-laws", "mother-in-law",
-        "father-in-law", "matrimonial", "divorce", "dowry", "alimony",
-        "domestic", "family",
+        "husband",
+        "wife",
+        "marriage",
+        "married",
+        "in-laws",
+        "mother-in-law",
+        "father-in-law",
+        "matrimonial",
+        "divorce",
+        "dowry",
+        "alimony",
+        "domestic",
+        "family",
     ],
     "consumer": [
-        "product", "service", "warranty", "refund", "defective",
-        "customer", "company", "brand", "purchase", "bought", "paid",
-        "e-commerce", "delivery", "seller", "manufacturer",
+        "product",
+        "service",
+        "warranty",
+        "refund",
+        "defective",
+        "customer",
+        "company",
+        "brand",
+        "purchase",
+        "bought",
+        "paid",
+        "e-commerce",
+        "delivery",
+        "seller",
+        "manufacturer",
     ],
     "property": [
-        "property", "land", "house", "flat", "apartment", "building",
-        "tenant", "landlord", "rent", "lease", "deed", "registry",
-        "encroachment", "possession", "boundary", "plot",
+        "property",
+        "land",
+        "house",
+        "flat",
+        "apartment",
+        "building",
+        "tenant",
+        "landlord",
+        "rent",
+        "lease",
+        "deed",
+        "registry",
+        "encroachment",
+        "possession",
+        "boundary",
+        "plot",
     ],
     "criminal": [
-        "police", "fir", "complaint", "arrested", "jail", "bail",
-        "court", "magistrate", "judge", "lawyer", "advocate",
-        "prison", "custody", "charge sheet",
+        "police",
+        "fir",
+        "complaint",
+        "arrested",
+        "jail",
+        "bail",
+        "court",
+        "magistrate",
+        "judge",
+        "lawyer",
+        "advocate",
+        "prison",
+        "custody",
+        "charge sheet",
     ],
 }
 
@@ -405,6 +466,7 @@ def _entity_fallback(case_text: str) -> tuple[set[str], int]:
 # Main Detection Function
 # ──────────────────────────────────────────────
 
+
 async def detect_jurisdiction(
     case_text: str,
     location: str = "",
@@ -425,9 +487,7 @@ async def detect_jurisdiction(
         JurisdictionResult with domains, sections, and confidence.
     """
     # --- Pass 1: Keyword + Regex ---
-    matched_sections, detected_domains, match_count, raw_matches = _keyword_pass(
-        case_text
-    )
+    matched_sections, detected_domains, match_count, raw_matches = _keyword_pass(case_text)
 
     method = "keyword"
 
@@ -476,6 +536,7 @@ async def detect_jurisdiction(
 # ──────────────────────────────────────────────
 # Quick-detect for live typing (frontend badges)
 # ──────────────────────────────────────────────
+
 
 def quick_detect(text: str) -> list[dict[str, str]]:
     """

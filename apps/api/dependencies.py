@@ -5,10 +5,9 @@ Provides database sessions, service instances, and settings.
 
 from __future__ import annotations
 
-from typing import AsyncGenerator
+from collections.abc import AsyncGenerator
 
-from fastapi import Depends, Request
-
+from fastapi import Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apps.api.config import Settings, get_settings

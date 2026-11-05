@@ -38,6 +38,7 @@ class LLMClient:
         """Lazy-initialize the Groq async client."""
         if self._client is None:
             from groq import AsyncGroq
+
             self._client = AsyncGroq(api_key=self._settings.groq_api_key)
             logger.info("✓ Groq async client initialized")
         return self._client
@@ -114,10 +115,12 @@ class LLMClient:
                 "token_count": token_count,
             }
 
-        except asyncio.TimeoutError:
+        except TimeoutError as e:
             elapsed_ms = int((time.perf_counter() - start) * 1000)
-            logger.warning("Groq TIMEOUT after %dms (model=%s, limit=%ds)", elapsed_ms, model, timeout)
-            raise TimeoutError(f"Groq {model} timed out after {timeout}s")
+            logger.warning(
+                "Groq TIMEOUT after %dms (model=%s, limit=%ds)", elapsed_ms, model, timeout
+            )
+            raise TimeoutError(f"Groq {model} timed out after {timeout}s") from e
 
         except Exception as e:
             elapsed_ms = int((time.perf_counter() - start) * 1000)
@@ -146,7 +149,9 @@ class LLMClient:
             )
         except Exception as primary_error:
             primary_err_msg = str(primary_error)
-            logger.warning("Primary model (%s) failed: %s — trying fallback", primary, primary_error)
+            logger.warning(
+                "Primary model (%s) failed: %s — trying fallback", primary, primary_error
+            )
 
         try:
             result = await self.generate(
@@ -168,9 +173,9 @@ class LLMClient:
         import re
 
         patterns = [
-            r'```json\s*\n?(.*?)\n?```',
-            r'```\s*\n?(.*?)\n?```',
-            r'\{.*\}',
+            r"```json\s*\n?(.*?)\n?```",
+            r"```\s*\n?(.*?)\n?```",
+            r"\{.*\}",
         ]
         for pattern in patterns:
             match = re.search(pattern, text, re.DOTALL)
@@ -183,14 +188,8 @@ class LLMClient:
         raise ValueError(f"Could not parse JSON from response: {text[:200]}...")
 
 
-
-
-
 # Singleton
 _llm_client: LLMClient | None = None
-
-
-
 
 
 def get_llm_client() -> LLMClient:

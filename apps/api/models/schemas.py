@@ -6,17 +6,15 @@ Matches PRD Section 6 — API Contract.
 from __future__ import annotations
 
 from datetime import datetime
-from decimal import Decimal
 from enum import Enum
-from typing import Any, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-
 # ──────────────────────────────────────────────
 # Enums
 # ──────────────────────────────────────────────
+
 
 class CaseStatus(str, Enum):
     PENDING = "pending"
@@ -46,8 +44,10 @@ class StreamEvent(str, Enum):
 # Request Schemas
 # ──────────────────────────────────────────────
 
+
 class CaseRequest(BaseModel):
     """POST /analyze-case request body."""
+
     case_text: str = Field(
         ...,
         min_length=50,
@@ -65,7 +65,7 @@ class CaseRequest(BaseModel):
         default=False,
         description="If true, response is streamed via SSE.",
     )
-    groq_api_key: Optional[str] = Field(
+    groq_api_key: str | None = Field(
         default=None,
         description="Optional Groq API key from the frontend to bypass system settings.",
     )
@@ -83,21 +83,24 @@ class CaseRequest(BaseModel):
 
 class FeedbackRequest(BaseModel):
     """POST /feedback request body."""
+
     case_id: UUID
     helpful: bool
-    comment: Optional[str] = Field(default=None, max_length=500)
+    comment: str | None = Field(default=None, max_length=500)
 
 
 class RefineAnswer(BaseModel):
     """Single follow-up question and answer."""
+
     question: str
     answer: str
 
 
 class RefineRequest(BaseModel):
     """POST /cases/{case_id}/refine request body."""
+
     answers: list[RefineAnswer]
-    groq_api_key: Optional[str] = Field(
+    groq_api_key: str | None = Field(
         default=None,
         description="Optional Groq API key from the frontend to bypass system settings.",
     )
@@ -107,8 +110,10 @@ class RefineRequest(BaseModel):
 # Response Sub-Schemas
 # ──────────────────────────────────────────────
 
+
 class LawDetail(BaseModel):
     """Single applicable law entry."""
+
     section: str = Field(..., examples=["IPC 279"])
     title: str = Field(..., examples=["Rash driving on public way"])
     explanation: str
@@ -118,6 +123,7 @@ class LawDetail(BaseModel):
 
 class ProsecutionDetail(BaseModel):
     """Prosecution perspective."""
+
     main_argument: str
     strongest_points: list[str]
     burden_of_proof: str
@@ -125,6 +131,7 @@ class ProsecutionDetail(BaseModel):
 
 class DefenseDetail(BaseModel):
     """Defense perspective."""
+
     main_argument: str
     counter_points: list[str]
     possible_loopholes: list[str]
@@ -132,6 +139,7 @@ class DefenseDetail(BaseModel):
 
 class ConsequencesDetail(BaseModel):
     """Potential legal consequences."""
+
     criminal: str
     civil: str
     bail_status: str
@@ -139,8 +147,9 @@ class ConsequencesDetail(BaseModel):
 
 class JurisdictionInfo(BaseModel):
     """Detected jurisdiction metadata."""
+
     country: str = "India"
-    state: Optional[str] = None
+    state: str | None = None
     domain: list[str] = Field(default_factory=list)
 
 
@@ -148,8 +157,10 @@ class JurisdictionInfo(BaseModel):
 # Response Schemas
 # ──────────────────────────────────────────────
 
+
 class AnalysisResponse(BaseModel):
     """Full analysis result — used for non-streaming response."""
+
     case_id: UUID
     summary: str
     timeline: list[str]
@@ -161,33 +172,35 @@ class AnalysisResponse(BaseModel):
     missing_info: list[str]
     from_cache: bool = False
     disclaimer: str = (
-        "This analysis is AI-generated and not legal advice. "
-        "Consult a qualified lawyer."
+        "This analysis is AI-generated and not legal advice. Consult a qualified lawyer."
     )
 
 
 class CaseResponse(BaseModel):
     """GET /cases/:id response."""
+
     id: UUID
     input_text: str
-    location: Optional[str]
-    jurisdiction: Optional[JurisdictionInfo]
+    location: str | None
+    jurisdiction: JurisdictionInfo | None
     status: CaseStatus
     created_at: datetime
-    analysis: Optional[AnalysisResponse] = None
+    analysis: AnalysisResponse | None = None
 
 
 class CaseListItem(BaseModel):
     """Summary item for case listing."""
+
     id: UUID
     summary_preview: str = Field(..., max_length=200)
     status: CaseStatus
-    confidence_score: Optional[float] = None
+    confidence_score: float | None = None
     created_at: datetime
 
 
 class CaseListResponse(BaseModel):
     """GET /cases response (paginated)."""
+
     cases: list[CaseListItem]
     total: int
     page: int
@@ -199,16 +212,19 @@ class CaseListResponse(BaseModel):
 # Error Schemas
 # ──────────────────────────────────────────────
 
+
 class ErrorDetail(BaseModel):
     """Structured error response matching PRD Section 6.3."""
+
     error: ErrorCode
     message: str
     suggestions: list[str] = Field(default_factory=list)
-    min_length: Optional[int] = None
+    min_length: int | None = None
 
 
 class ErrorResponse(BaseModel):
     """Wrapper for error responses."""
+
     detail: ErrorDetail
 
 
@@ -216,15 +232,18 @@ class ErrorResponse(BaseModel):
 # Health Check
 # ──────────────────────────────────────────────
 
+
 class ServiceHealth(BaseModel):
     """Individual service health status."""
+
     status: str  # "ok" | "degraded" | "down"
-    latency_ms: Optional[int] = None
-    message: Optional[str] = None
+    latency_ms: int | None = None
+    message: str | None = None
 
 
 class HealthResponse(BaseModel):
     """GET /health response."""
+
     status: str  # "healthy" | "degraded" | "unhealthy"
     version: str
     services: dict[str, ServiceHealth]

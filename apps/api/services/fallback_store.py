@@ -6,7 +6,6 @@ Pre-loaded IPC/CrPC/MVA map per PRD §9.3 fallback chain.
 from __future__ import annotations
 
 import logging
-import re
 from dataclasses import dataclass, field
 
 logger = logging.getLogger("andhakaanun.fallback")
@@ -15,6 +14,7 @@ logger = logging.getLogger("andhakaanun.fallback")
 @dataclass
 class FallbackLaw:
     """Minimal law entry for in-memory fallback."""
+
     section_id: str
     act: str
     section_number: str
@@ -44,7 +44,13 @@ FALLBACK_LAWS: dict[str, FallbackLaw] = {
         max_punishment="6 months imprisonment or fine up to Rs. 1000",
         bailable=True,
         cognizable=True,
-        keywords=["rash driving", "negligent driving", "speeding", "reckless driving", "road accident"],
+        keywords=[
+            "rash driving",
+            "negligent driving",
+            "speeding",
+            "reckless driving",
+            "road accident",
+        ],
     ),
     "IPC_304A": FallbackLaw(
         section_id="IPC_304A",
@@ -57,7 +63,14 @@ FALLBACK_LAWS: dict[str, FallbackLaw] = {
         max_punishment="2 years imprisonment",
         bailable=True,
         cognizable=True,
-        keywords=["death", "killed", "negligent death", "accident death", "pedestrian killed", "fatal accident"],
+        keywords=[
+            "death",
+            "killed",
+            "negligent death",
+            "accident death",
+            "pedestrian killed",
+            "fatal accident",
+        ],
     ),
     "IPC_338": FallbackLaw(
         section_id="IPC_338",
@@ -161,7 +174,14 @@ FALLBACK_LAWS: dict[str, FallbackLaw] = {
         max_punishment="3 years imprisonment and fine",
         bailable=False,
         cognizable=True,
-        keywords=["domestic violence", "dowry", "cruelty", "harassment", "wife beating", "marital cruelty"],
+        keywords=[
+            "domestic violence",
+            "dowry",
+            "cruelty",
+            "harassment",
+            "wife beating",
+            "marital cruelty",
+        ],
     ),
     "IPC_499": FallbackLaw(
         section_id="IPC_499",
@@ -252,7 +272,13 @@ FALLBACK_LAWS: dict[str, FallbackLaw] = {
         max_punishment="1 year imprisonment or Rs. 20,000 fine",
         bailable=True,
         cognizable=True,
-        keywords=["domestic violence", "wife abuse", "husband violence", "physical abuse", "emotional abuse"],
+        keywords=[
+            "domestic violence",
+            "wife abuse",
+            "husband violence",
+            "physical abuse",
+            "emotional abuse",
+        ],
     ),
 }
 

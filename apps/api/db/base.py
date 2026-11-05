@@ -17,6 +17,7 @@ from apps.api.config import get_settings
 
 class Base(DeclarativeBase):
     """Declarative base for all ORM models."""
+
     pass
 
 

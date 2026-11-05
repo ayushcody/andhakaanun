@@ -7,8 +7,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from functools import lru_cache
-from typing import Sequence
 
 logger = logging.getLogger("andhakaanun.embeddings")
 
@@ -40,8 +38,7 @@ class EmbeddingService:
                 )
             except ImportError:
                 logger.error(
-                    "sentence-transformers not installed. "
-                    "Run: pip install sentence-transformers"
+                    "sentence-transformers not installed. Run: pip install sentence-transformers"
                 )
                 raise
         return self._model

@@ -102,7 +102,9 @@ class ReasoningEngine:
                 logger.warning("LLM returned a JSON array; using its first object")
                 raw_output = raw_output[0]
             if not isinstance(raw_output, dict):
-                raise ValueError(f"LLM returned {type(raw_output).__name__}, expected a JSON object")
+                raise ValueError(
+                    f"LLM returned {type(raw_output).__name__}, expected a JSON object"
+                )
             metadata["model"] = result["model"]
             metadata["llm_latency_ms"] = result["latency_ms"]
             metadata["token_count"] = result.get("token_count", 0)
@@ -117,9 +119,7 @@ class ReasoningEngine:
                 error_reason=str(e),
             )
             metadata["partial_response"] = True
-            metadata["total_latency_ms"] = int(
-                (time.perf_counter() - start) * 1000
-            )
+            metadata["total_latency_ms"] = int((time.perf_counter() - start) * 1000)
             return {
                 "analysis": partial,
                 "metadata": metadata,
@@ -139,9 +139,7 @@ class ReasoningEngine:
             retrieved_laws,
         )
 
-        metadata["total_latency_ms"] = int(
-            (time.perf_counter() - start) * 1000
-        )
+        metadata["total_latency_ms"] = int((time.perf_counter() - start) * 1000)
 
         logger.info(
             "Reasoning complete: model=%s, laws=%d, confidence=%.2f, latency=%dms",
@@ -172,14 +170,14 @@ class ReasoningEngine:
             score_map[f"{law.act}_{law.section_number}".upper()] = law.score
 
         enriched = []
-        for law in llm_laws:
-            section = law.get("section", "").strip()
+        for llm_law in llm_laws:
+            section = llm_law.get("section", "").strip()
             normalized = section.upper().replace(" ", "_")
             alt = section.upper()
 
             score = score_map.get(normalized) or score_map.get(alt) or 0.5
-            law["similarity_score"] = round(score, 2)
-            enriched.append(law)
+            llm_law["similarity_score"] = round(score, 2)
+            enriched.append(llm_law)
 
         return enriched
 
@@ -187,6 +185,7 @@ class ReasoningEngine:
 # ──────────────────────────────────────────────
 # Convenience Function
 # ──────────────────────────────────────────────
+
 
 async def run_reasoning(
     case_text: str,

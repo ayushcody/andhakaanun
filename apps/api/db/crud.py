@@ -6,19 +6,19 @@ Thin async wrappers — no business logic here.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
-from typing import Optional, Sequence
+from collections.abc import Sequence
+from decimal import Decimal
 
-from sqlalchemy import select, func, desc
+from sqlalchemy import desc, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from apps.api.db.models import Analysis, Case, Feedback, RequestLog
 
-
 # ──────────────────────────────────────────────
 # Cases
 # ──────────────────────────────────────────────
+
 
 async def create_case(
     session: AsyncSession,
@@ -101,6 +101,7 @@ async def list_cases(
 # Analysis
 # ──────────────────────────────────────────────
 
+
 async def create_analysis(
     session: AsyncSession,
     *,
@@ -152,15 +153,24 @@ async def update_analysis(
     if not analysis:
         return None
 
-    if summary is not None: analysis.summary = summary
-    if timeline is not None: analysis.timeline = timeline
-    if laws is not None: analysis.laws = laws
-    if prosecution is not None: analysis.prosecution = prosecution
-    if defense is not None: analysis.defense = defense
-    if consequences is not None: analysis.consequences = consequences
-    if missing_info is not None: analysis.missing_info = missing_info
-    if confidence_score is not None: analysis.confidence_score = confidence_score
-    if raw_llm_output is not None: analysis.raw_llm_output = raw_llm_output
+    if summary is not None:
+        analysis.summary = summary
+    if timeline is not None:
+        analysis.timeline = timeline
+    if laws is not None:
+        analysis.laws = laws
+    if prosecution is not None:
+        analysis.prosecution = prosecution
+    if defense is not None:
+        analysis.defense = defense
+    if consequences is not None:
+        analysis.consequences = consequences
+    if missing_info is not None:
+        analysis.missing_info = missing_info
+    if confidence_score is not None:
+        analysis.confidence_score = Decimal(str(confidence_score))
+    if raw_llm_output is not None:
+        analysis.raw_llm_output = raw_llm_output
 
     await session.flush()
     return analysis
@@ -179,6 +189,7 @@ async def get_analysis_by_case_id(
 # ──────────────────────────────────────────────
 # Request Logs
 # ──────────────────────────────────────────────
+
 
 async def create_request_log(
     session: AsyncSession,
@@ -209,6 +220,7 @@ async def create_request_log(
 # ──────────────────────────────────────────────
 # Feedback
 # ──────────────────────────────────────────────
+
 
 async def create_feedback(
     session: AsyncSession,

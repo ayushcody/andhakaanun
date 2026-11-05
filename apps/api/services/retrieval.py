@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from apps.api.services.cache import CacheService
@@ -29,6 +29,7 @@ logger = logging.getLogger("andhakaanun.retrieval")
 @dataclass
 class RetrievedLaw:
     """Single retrieved law from vector store or fallback."""
+
     section_id: str = ""
     act: str = ""
     section_number: str = ""
@@ -97,16 +98,14 @@ class RetrievalService:
                 if results:
                     metadata["source"] = "pinecone"
                     metadata["count"] = len(results)
-                    metadata["latency_ms"] = int(
-                        (time.perf_counter() - start) * 1000
-                    )
+                    metadata["latency_ms"] = int((time.perf_counter() - start) * 1000)
                     logger.info(
                         "Pinecone retrieval: %d results in %dms",
                         len(results),
                         metadata["latency_ms"],
                     )
                     return results, metadata
-            except asyncio.TimeoutError:
+            except TimeoutError:
                 logger.warning(
                     "Pinecone timeout after %.1fs — falling back to keywords",
                     self._timeout,

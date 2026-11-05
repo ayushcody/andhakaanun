@@ -8,7 +8,7 @@ from __future__ import annotations
 import hashlib
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 logger = logging.getLogger("andhakaanun.cache")
 
@@ -25,7 +25,8 @@ class CacheService:
             redis_client: Async Redis client (from app.state.redis).
             ttl_seconds: Cache TTL in seconds. Default 1 hour per PRD §3.3.
         """
-        self._redis = redis_client
+        # Any: redis.asyncio client, or None when Redis is down (guarded by is_available).
+        self._redis: Any = redis_client
         self._ttl = ttl_seconds
 
     @property

@@ -21,7 +21,7 @@ logger = logging.getLogger("andhakaanun.validation")
 # Required fields in LLM output
 # ──────────────────────────────────────────────
 
-REQUIRED_FIELDS = {
+REQUIRED_FIELDS: dict[str, type | tuple[type, ...]] = {
     "summary": str,
     "timeline": list,
     "laws": list,
@@ -41,12 +41,15 @@ REQUIRED_DEFENSE_FIELDS = {"main_argument", "counter_points", "possible_loophole
 
 REQUIRED_CONSEQUENCES_FIELDS = {"criminal", "civil", "bail_status"}
 
-MANDATORY_DISCLAIMER = "This analysis is AI-generated and not legal advice. Consult a qualified lawyer."
+MANDATORY_DISCLAIMER = (
+    "This analysis is AI-generated and not legal advice. Consult a qualified lawyer."
+)
 
 
 # ──────────────────────────────────────────────
 # Schema Validation
 # ──────────────────────────────────────────────
+
 
 def validate_schema(output: dict[str, Any]) -> tuple[bool, list[str]]:
     """
@@ -114,6 +117,7 @@ def validate_schema(output: dict[str, Any]) -> tuple[bool, list[str]]:
 # Hallucination Guard
 # ──────────────────────────────────────────────
 
+
 def check_hallucinated_laws(
     output: dict[str, Any],
     context_laws: list[RetrievedLaw],
@@ -175,6 +179,7 @@ def check_hallucinated_laws(
 # Full Validation Pipeline
 # ──────────────────────────────────────────────
 
+
 def validate_and_clean(
     output: dict[str, Any],
     context_laws: list[RetrievedLaw],
@@ -231,7 +236,9 @@ def validate_and_clean(
             metadata["confidence_adjusted"] = True
             logger.info(
                 "Confidence adjusted: %.2f → %.2f (-%d hallucinated laws)",
-                original_score, adjusted, len(hallucinated),
+                original_score,
+                adjusted,
+                len(hallucinated),
             )
 
     # 3. Ensure disclaimer
@@ -248,7 +255,7 @@ def validate_and_clean(
 
 def _apply_defaults(output: dict[str, Any]) -> dict[str, Any]:
     """Apply default values for missing fields."""
-    defaults = {
+    defaults: dict[str, Any] = {
         "summary": "Analysis could not generate a full summary.",
         "timeline": [],
         "laws": [],

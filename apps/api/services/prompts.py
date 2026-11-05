@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from apps.api.services.retrieval import RetrievedLaw
 
-
 # ──────────────────────────────────────────────
 # System Prompt (PRD §5.1 — verbatim)
 # ──────────────────────────────────────────────
@@ -42,6 +41,7 @@ IMPORTANT: Respond with a single valid JSON object only. No text outside the JSO
 # User Prompt Template (PRD §5.2)
 # ──────────────────────────────────────────────
 
+
 def build_user_prompt(
     case_text: str,
     location: str,
@@ -68,7 +68,11 @@ def build_user_prompt(
             line += f"\nCognizable: {'Yes' if law.cognizable else 'No'}"
         legal_context_lines.append(line)
 
-    legal_context = "\n\n".join(legal_context_lines) if legal_context_lines else "No relevant laws found in the context."
+    legal_context = (
+        "\n\n".join(legal_context_lines)
+        if legal_context_lines
+        else "No relevant laws found in the context."
+    )
 
     domain_str = ", ".join(domains) if domains else "Unknown"
 
@@ -77,7 +81,7 @@ def build_user_prompt(
 </case_narrative>
 
 <detected_jurisdiction>
-Country: India | State: {location or 'Not specified'} | Domain: {domain_str}
+Country: India | State: {location or "Not specified"} | Domain: {domain_str}
 </detected_jurisdiction>
 
 <legal_context>
@@ -91,6 +95,7 @@ Analyze this case and return the JSON output."""
 # Fallback partial response (PRD §9.3)
 # ──────────────────────────────────────────────
 
+
 def build_partial_response(
     case_text: str,
     retrieved_laws: list[RetrievedLaw],
@@ -102,13 +107,15 @@ def build_partial_response(
     """
     laws = []
     for law in retrieved_laws:
-        laws.append({
-            "section": f"{law.act} {law.section_number}",
-            "title": law.title,
-            "explanation": law.simplified or law.full_text[:200],
-            "applies_because": "Matched via keyword retrieval (LLM analysis unavailable)",
-            "similarity_score": law.score,
-        })
+        laws.append(
+            {
+                "section": f"{law.act} {law.section_number}",
+                "title": law.title,
+                "explanation": law.simplified or law.full_text[:200],
+                "applies_because": "Matched via keyword retrieval (LLM analysis unavailable)",
+                "similarity_score": law.score,
+            }
+        )
 
     return {
         "summary": (
