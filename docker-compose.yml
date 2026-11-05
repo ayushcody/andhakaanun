@@ -1,33 +1,30 @@
-version: '3.8'
+# docker compose up --build
+# Reads API settings from .env (copy .env.example first). Without PostgreSQL,
+# Redis or a Pinecone index the API runs in its degraded mode.
 
 services:
   api:
     build:
       context: .
       dockerfile: apps/api/Dockerfile
+    env_file: .env
     ports:
       - "8000:8000"
-    environment:
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      # Add other DB/Redis connection strings here when available
-      # - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/andhakaanun
-      # - REDIS_URL=redis://redis:6379/0
-    depends_on:
-      # - db
-      # - redis
-      pass
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_API_URL: http://api:8000
     ports:
       - "3000:3000"
-    environment:
-      - NEXT_PUBLIC_API_URL=http://api:8000
     depends_on:
       - api
 
+  # Optional services. Uncomment, then point DATABASE_URL / REDIS_URL in .env at
+  # postgresql+asyncpg://postgres:password@db:5432/andhakaanun and redis://redis:6379/0.
+  #
   # db:
   #   image: postgres:15
   #   environment:
@@ -38,11 +35,11 @@ services:
   #     - "5432:5432"
   #   volumes:
   #     - postgres_data:/var/lib/postgresql/data
-
+  #
   # redis:
   #   image: redis:7-alpine
   #   ports:
   #     - "6379:6379"
-
-volumes:
-  postgres_data:
+#
+# volumes:
+#   postgres_data:

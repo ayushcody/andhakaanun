@@ -1,19 +1,14 @@
 #!/bin/bash
 set -e
 
-echo "Starting deployment process..."
-
-# Navigate to api directory if needed
-# cd apps/api
-
-# Run database migrations
-# Assuming alembic is configured at the root or within apps/api
-# We will use the python module path if run from root
-if [ -f "alembic.ini" ]; then
-    echo "Running database migrations..."
-    alembic upgrade head
+# Alembic is configured to run from apps/api/db (script_location = migrations).
+# The API works without PostgreSQL, so a failed migration is logged, not fatal.
+echo "Running database migrations..."
+if (cd /app/apps/api/db && alembic upgrade head); then
+    echo "Migrations applied."
+else
+    echo "Migrations skipped: database not reachable. The API will keep cases in memory."
 fi
 
 echo "Starting server..."
-# Run the application
 exec "$@"
