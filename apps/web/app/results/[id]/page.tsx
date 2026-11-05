@@ -11,163 +11,218 @@ interface Law {
   applies_because: string;
 }
 
+function prettyDomain(domain: string): string {
+  const [head, ...rest] = domain.split('_');
+  const base = head.charAt(0).toUpperCase() + head.slice(1);
+  return rest.length ? `${base} (${rest.join(' ')})` : base;
+}
+
+function confidenceBand(score: number): { label: string; tone: 'high' | 'medium' | 'low' } {
+  if (score >= 0.7) return { label: 'High confidence', tone: 'high' };
+  if (score >= 0.45) return { label: 'Medium confidence', tone: 'medium' };
+  return { label: 'Low confidence', tone: 'low' };
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <div className={styles.page}>
+      <header className={styles.topbar}>
+        <Link href="/" className="wordmark">
+          Andha<span>Kaanun</span>
+        </Link>
+        <Link href="/" className={styles.newLink}>
+          New analysis
+        </Link>
+      </header>
+      {children}
+    </div>
+  );
+}
+
 // Next.js 14 Server Component Page
 export default async function ResultsPage({ params }: { params: { id: string } }) {
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
-  
+
+  let data;
+  let status = 0;
   try {
     const res = await fetch(`${API_URL}/cases/${params.id}`, {
-      // Don't strongly cache since we might get a partial response or streaming might just have finished
-      next: { revalidate: 0 } 
+      // Always fetch fresh: a refinement overwrites the stored analysis.
+      next: { revalidate: 0 },
     });
-    
-    if (!res.ok) {
-      if (res.status === 404) notFound();
-      throw new Error(`Failed to fetch case: ${res.statusText}`);
-    }
-    
-    const data = await res.json();
-    const caseData = data.analysis;
-    
-    // If somehow analysis is empty or streaming failed, show minimal state
-    if (!caseData) {
-      return (
-        <div className={styles.container}>
-          <h1>Analysis Pending or Failed</h1>
-          <p>Please try submitting your case again.</p>
-          <Link href="/" className={styles.backBtn}>← Back to Input</Link>
-        </div>
-      );
-    }
-
-    const confidenceClass = caseData.confidence_score > 0.6 ? '' : styles.low;
-    const confidenceText = caseData.confidence_score > 0.6 
-      ? `${Math.round(caseData.confidence_score * 100)}% Confidence` 
-      : 'Low Confidence (Fallback)';
-
+    status = res.status;
+    if (res.ok) data = await res.json();
+    else if (status !== 404) throw new Error(`Failed to fetch case: ${res.statusText}`);
+  } catch (error) {
+    console.error(error);
     return (
-      <div className={styles.container}>
-        <Link href="/" className={styles.backBtn}>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12"></line>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-          New Analysis
-        </Link>
-        
-        <header className={`${styles.header} animate-fade-in`}>
-          <div className={styles.titleWrapper}>
-            <h1 className={styles.title}>Legal Analysis Result</h1>
-            <div className={`${styles.confidenceBadge} ${confidenceClass}`}>
-              {confidenceText}
-            </div>
-          </div>
+      <Shell>
+        <div className={styles.stateBox}>
+          <h1>Could not load this analysis</h1>
+          <p>The API did not respond. Make sure the backend is running, then reload this page.</p>
+        </div>
+      </Shell>
+    );
+  }
+
+  if (status === 404) notFound();
+
+  const caseData = data.analysis;
+
+  if (!caseData) {
+    return (
+      <Shell>
+        <div className={styles.stateBox}>
+          <h1>No analysis for this case yet</h1>
+          <p>The analysis is still pending or did not complete. Submit the case again from the start page.</p>
+        </div>
+      </Shell>
+    );
+  }
+
+  const score: number = caseData.confidence_score ?? 0;
+  const band = confidenceBand(score);
+  const domains: string[] = data.jurisdiction?.domain ?? [];
+  const laws: Law[] = caseData.laws ?? [];
+  const timeline: string[] = caseData.timeline ?? [];
+
+  return (
+    <Shell>
+      <main className={styles.main}>
+        <header className={`${styles.header} reveal`}>
+          <h1 className={styles.title}>Case analysis</h1>
+          <ul className={styles.meta}>
+            {data.location && <li>{data.location}</li>}
+            {domains.map((d) => (
+              <li key={d}>{prettyDomain(d)}</li>
+            ))}
+            <li>
+              {laws.length} {laws.length === 1 ? 'section' : 'sections'} cited
+            </li>
+            <li className={`${styles.confidence} ${styles[band.tone]}`}>
+              <span className="mono">{Math.round(score * 100)}%</span> {band.label}
+            </li>
+          </ul>
+          {data.input_text && (
+            <details className={styles.narrative}>
+              <summary>Case narrative as submitted</summary>
+              <p>{data.input_text}</p>
+            </details>
+          )}
         </header>
 
-        {/* Summary Section */}
-        <section className={`${styles.section} animate-slide-up`}>
-          <h2 className={styles.sectionTitle}>Case Summary</h2>
-          <div className={`glass-panel ${styles.contentBox}`}>
-            <p className={styles.summaryText}>{caseData.summary}</p>
-          </div>
-        </section>
-
-        {/* Laws Section */}
-        <section className={`${styles.section} animate-slide-up delay-1`}>
-          <h2 className={styles.sectionTitle}>Applicable Laws</h2>
-          {caseData.laws && caseData.laws.length > 0 ? (
-            caseData.laws.map((law: Law, i: number) => (
-              <div key={i} className={styles.lawCard}>
-                <div className={styles.lawHeader}>
-                  <div>
-                    <div className={styles.lawSection}>{law.section}</div>
-                    <div className={styles.lawTitle}>{law.title}</div>
-                  </div>
-                  <div className={styles.lawScore}>
-                    Match: {Math.round(law.similarity_score * 100)}%
-                  </div>
-                </div>
-                <div className={styles.lawExplanation}>{law.explanation}</div>
-                <div className={styles.lawReasoning}>
-                  <strong>Why it applies:</strong> {law.applies_because}
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="glass-panel" style={{ padding: '1.5rem', color: 'var(--text-muted)' }}>
-              No specific laws were identified for this case.
-            </div>
+        <section className={`${styles.summary} reveal`} style={{ '--i': 1 } as React.CSSProperties}>
+          <h2 className={styles.h2}>Summary</h2>
+          <p className={styles.summaryText}>{caseData.summary}</p>
+          {timeline.length > 0 && (
+            <ol className={styles.timeline}>
+              {timeline.map((t, i) => (
+                <li key={i}>{t}</li>
+              ))}
+            </ol>
           )}
         </section>
 
-        {/* Perspectives Section */}
-        <section className={`${styles.section} ${styles.grid} animate-slide-up delay-2`}>
-          {/* Prosecution */}
-          <div className={`glass-panel ${styles.contentBox} ${styles.perspectiveCard} ${styles.prosecution}`}>
-            <h3 className={styles.perspectiveTitle}>Prosecution Perspective</h3>
-            <p>{caseData.prosecution?.main_argument}</p>
-            <ul className={styles.pointsList}>
-              {caseData.prosecution?.strongest_points?.map((pt: string, i: number) => (
-                <li key={i}>{pt}</li>
-              ))}
-            </ul>
-            <div style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
-              <strong>Burden of Proof:</strong> {caseData.prosecution?.burden_of_proof}
+        <section className={`${styles.argument} reveal`} style={{ '--i': 2 } as React.CSSProperties}>
+          <div className={styles.side}>
+            <h2 className={styles.sideTitle}>Prosecution</h2>
+            <p className={styles.mainArg}>{caseData.prosecution?.main_argument}</p>
+            {caseData.prosecution?.strongest_points?.length > 0 && (
+              <>
+                <h3 className={styles.h3}>Strongest points</h3>
+                <ul className={styles.points}>
+                  {caseData.prosecution.strongest_points.map((pt: string, i: number) => (
+                    <li key={i}>{pt}</li>
+                  ))}
+                </ul>
+              </>
+            )}
+            <div className={styles.sideNote}>
+              <h3 className={styles.h3}>Burden of proof</h3>
+              <p>{caseData.prosecution?.burden_of_proof}</p>
             </div>
           </div>
 
-          {/* Defense */}
-          <div className={`glass-panel ${styles.contentBox} ${styles.perspectiveCard} ${styles.defense}`}>
-            <h3 className={styles.perspectiveTitle}>Defense Perspective</h3>
-            <p>{caseData.defense?.main_argument}</p>
-            <ul className={styles.pointsList}>
-              {caseData.defense?.counter_points?.map((pt: string, i: number) => (
-                <li key={i}>{pt}</li>
-              ))}
-            </ul>
+          <div className={styles.versus} aria-hidden="true">
+            <span>v.</span>
+          </div>
+
+          <div className={styles.side}>
+            <h2 className={styles.sideTitle}>Defense</h2>
+            <p className={styles.mainArg}>{caseData.defense?.main_argument}</p>
+            {caseData.defense?.counter_points?.length > 0 && (
+              <>
+                <h3 className={styles.h3}>Counter points</h3>
+                <ul className={styles.points}>
+                  {caseData.defense.counter_points.map((pt: string, i: number) => (
+                    <li key={i}>{pt}</li>
+                  ))}
+                </ul>
+              </>
+            )}
             {caseData.defense?.possible_loopholes?.length > 0 && (
-              <div style={{ marginTop: '1rem', fontSize: '0.85rem' }}>
-                <strong>Loopholes:</strong> {caseData.defense?.possible_loopholes.join(', ')}
+              <div className={styles.sideNote}>
+                <h3 className={styles.h3}>Possible loopholes</h3>
+                <ul className={styles.points}>
+                  {caseData.defense.possible_loopholes.map((pt: string, i: number) => (
+                    <li key={i}>{pt}</li>
+                  ))}
+                </ul>
               </div>
             )}
           </div>
         </section>
 
-        {/* Consequences Section */}
-        <section className={`${styles.section} animate-slide-up delay-3`}>
-          <h2 className={styles.sectionTitle}>Potential Consequences</h2>
-          <div className={`glass-panel ${styles.contentBox} ${styles.consequencesList}`}>
-            <div className={styles.consequenceItem}>
-              <div className={styles.cLabel}>Criminal</div>
-              <div className={styles.cValue}>{caseData.consequences?.criminal}</div>
+        <section className={`${styles.block} reveal`} style={{ '--i': 3 } as React.CSSProperties}>
+          <h2 className={styles.h2}>Sections cited</h2>
+          <p className={styles.blockLede}>
+            Only sections retrieved for this case can be cited. Anything else the model names is removed.
+          </p>
+          {laws.length > 0 ? (
+            <div className={styles.laws}>
+              {laws.map((law, i) => (
+                <article key={i} className={styles.law}>
+                  <div className={styles.lawHead}>
+                    <span className={`mono ${styles.lawCode}`}>{law.section}</span>
+                    <span className={`mono ${styles.lawScore}`} title="Retrieval similarity score">
+                      match {law.similarity_score.toFixed(2)}
+                    </span>
+                  </div>
+                  <h3 className={styles.lawTitle}>{law.title}</h3>
+                  <p className={styles.lawText}>{law.explanation}</p>
+                  <p className={styles.lawWhy}>
+                    <strong>Why it applies.</strong> {law.applies_because}
+                  </p>
+                </article>
+              ))}
             </div>
-            <div className={styles.consequenceItem}>
-              <div className={styles.cLabel}>Civil</div>
-              <div className={styles.cValue}>{caseData.consequences?.civil}</div>
-            </div>
-            <div className={styles.consequenceItem}>
-              <div className={styles.cLabel}>Bail Status</div>
-              <div className={styles.cValue}>{caseData.consequences?.bail_status}</div>
-            </div>
-          </div>
+          ) : (
+            <p className={styles.empty}>No sections from the index matched this case.</p>
+          )}
         </section>
 
-        {/* Interactive Follow-Up Engine */}
+        <section className={`${styles.block} reveal`} style={{ '--i': 4 } as React.CSSProperties}>
+          <h2 className={styles.h2}>Possible consequences</h2>
+          <dl className={styles.consequences}>
+            <div>
+              <dt>Criminal</dt>
+              <dd>{caseData.consequences?.criminal}</dd>
+            </div>
+            <div>
+              <dt>Civil</dt>
+              <dd>{caseData.consequences?.civil}</dd>
+            </div>
+            <div>
+              <dt>Bail</dt>
+              <dd>{caseData.consequences?.bail_status}</dd>
+            </div>
+          </dl>
+        </section>
+
         <FollowUpEngine caseId={params.id} missingInfo={caseData.missing_info} />
 
-        <footer className={styles.disclaimer}>
-          {caseData.disclaimer}
-        </footer>
-      </div>
-    );
-  } catch (error) {
-    console.error(error);
-    return (
-      <div className={styles.container}>
-        <h1>Error Loading Results</h1>
-        <p>There was a problem fetching the case results. Make sure the backend is running.</p>
-        <Link href="/" className={styles.backBtn}>← Back to Input</Link>
-      </div>
-    );
-  }
+        <footer className={styles.disclaimer}>{caseData.disclaimer}</footer>
+      </main>
+    </Shell>
+  );
 }

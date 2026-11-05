@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import styles from './page.module.css';
 
 interface FollowUpEngineProps {
   caseId: string;
@@ -12,110 +13,96 @@ export default function FollowUpEngine({ caseId, missingInfo }: FollowUpEnginePr
   const router = useRouter();
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+  const [error, setError] = useState<string | null>(null);
+
   // Do not render if there's no missing info
   if (!missingInfo || missingInfo.length === 0) return null;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Format payload and filter out empty answers
     const payload = {
       answers: missingInfo
         .map((q, i) => ({
           question: q,
-          answer: answers[i]?.trim()
+          answer: answers[i]?.trim(),
         }))
-        .filter(item => item.answer)
+        .filter((item) => item.answer),
     };
 
     if (payload.answers.length === 0) {
-      alert("Please answer at least one question to refine the analysis.");
+      setError('Answer at least one question to refine the analysis.');
       return;
     }
 
     setIsSubmitting(true);
+    setError(null);
 
     try {
       const res = await fetch(`/api/proxy/cases/${caseId}/refine`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify(payload),
       });
-      
+
       if (res.ok) {
-        // Clear answers
         setAnswers({});
-        // Refresh server components to fetch new data
+        // Re-render the server component so it fetches the refined analysis.
         router.refresh();
       } else {
-        const error = await res.json();
-        alert(error?.detail?.message || 'Failed to refine analysis.');
+        const body = await res.json();
+        setError(body?.detail?.message || 'Refinement failed. Please try again.');
       }
     } catch (err) {
       console.error(err);
-      alert('Network error while refining.');
+      setError('Could not reach the analysis service.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const answered = Object.values(answers).filter((a) => a.trim()).length;
+
   return (
-    <section className="animate-slide-up delay-4" style={{ marginTop: '3rem' }}>
-      <h2 style={{ fontSize: '1.5rem', fontWeight: 700, marginBottom: '1rem', color: '#fff' }}>
-        Missing Legal Context
-      </h2>
-      <p style={{ color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-        We identified missing context that could improve this analysis. Please answer any of the following to iteratively refine the argument quality:
+    <section className={`${styles.followUp} reveal`} style={{ '--i': 5 } as React.CSSProperties}>
+      <h2 className={styles.h2}>What would sharpen this analysis</h2>
+      <p className={styles.blockLede}>
+        These facts are missing from your account. Answer any of them and the case is analyzed again with your
+        answers added.
       </p>
-      
-      <form onSubmit={handleSubmit} className="glass-panel" style={{ padding: '2rem' }}>
+
+      <form onSubmit={handleSubmit} className={styles.followForm}>
         {missingInfo.map((q, i) => (
-          <div key={i} style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', marginBottom: '0.75rem', fontWeight: 600, color: 'var(--accent-primary)' }}>
-              Question {i + 1}: {q}
+          <div key={i} className={styles.question}>
+            <label htmlFor={`fu-${i}`} className={styles.questionLabel}>
+              <span className={`mono ${styles.qIndex}`}>Q{i + 1}</span>
+              {q}
             </label>
             <textarea
+              id={`fu-${i}`}
+              className={`field ${styles.answer}`}
               value={answers[i] || ''}
               onChange={(e) => setAnswers({ ...answers, [i]: e.target.value })}
-              style={{
-                width: '100%',
-                padding: '0.75rem',
-                borderRadius: '8px',
-                border: '1px solid var(--border-subtle)',
-                background: 'rgba(0,0,0,0.2)',
-                color: '#fff',
-                fontSize: '1rem',
-                minHeight: '80px',
-                resize: 'vertical',
-                fontFamily: 'inherit'
-              }}
-              placeholder="Provide more context..."
+              placeholder="Leave blank if you don't know"
+              rows={2}
             />
           </div>
         ))}
-        
-        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
-          <button 
-            type="submit" 
-            disabled={isSubmitting}
-            style={{
-              background: 'var(--accent-primary)',
-              color: '#fff',
-              border: 'none',
-              padding: '0.75rem 2rem',
-              borderRadius: '8px',
-              fontSize: '1rem',
-              fontWeight: 600,
-              cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              opacity: isSubmitting ? 0.7 : 1,
-              transition: 'background 0.2s',
-              boxShadow: '0 0 15px rgba(58, 134, 255, 0.4)'
-            }}
-          >
-            {isSubmitting ? 'Refining Analysis...' : 'Submit Answers'}
+
+        <div className={styles.followActions}>
+          <span className="field-help">
+            {answered} of {missingInfo.length} answered
+          </span>
+          <button type="submit" className="btn-primary" disabled={isSubmitting}>
+            {isSubmitting ? 'Re-analyzing...' : 'Refine analysis'}
           </button>
         </div>
+        {error && (
+          <p className="inline-error" role="alert">
+            {error}
+          </p>
+        )}
       </form>
     </section>
   );
