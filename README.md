@@ -111,8 +111,8 @@ cp .env.example .env
 | Variable | Required | Default | Notes |
 | --- | --- | --- | --- |
 | `GROQ_API_KEY` | yes | | The web form can also send a per-request key. |
-| `GROQ_MODEL_PRIMARY` | no | `llama-3.3-70b-versatile` | See the model note below. |
-| `GROQ_MODEL_FALLBACK` | no | `llama-3.1-8b-instant` | Used if the primary model errors or times out (30 s). |
+| `GROQ_MODEL_PRIMARY` | no | `openai/gpt-oss-120b` | Any model your key lists at `GET https://api.groq.com/openai/v1/models`. |
+| `GROQ_MODEL_FALLBACK` | no | `openai/gpt-oss-20b` | Used if the primary model errors or times out (30 s). |
 | `PINECONE_API_KEY` | yes* | | *Must be set, but can be a placeholder. Retrieval then uses keyword search. |
 | `PINECONE_INDEX` | no | `andhakaanun-legal` | |
 | `DATABASE_URL` | yes* | | *Must be set, but the database doesn't need to be running. Cases then live in memory. |
@@ -121,7 +121,7 @@ cp .env.example .env
 | `DEBUG` | no | `false` | `true` enables `/docs` and `/redoc`. |
 | `NEXT_PUBLIC_API_URL` | no | `http://127.0.0.1:8000` | Read by the web app's proxy and results page. |
 
-> **Model note.** As of November 2026 Groq no longer serves the two default Llama models; requests return `404 model_not_found`. Set `GROQ_MODEL_PRIMARY=openai/gpt-oss-120b` and `GROQ_MODEL_FALLBACK=openai/gpt-oss-20b` (or any model your key lists at `GET https://api.groq.com/openai/v1/models`).
+> **Model note.** The project was first built on `llama-3.3-70b-versatile`. Groq no longer serves it or `llama-3.1-8b-instant` (requests return `404 model_not_found`), so the defaults are now `openai/gpt-oss-120b` with `openai/gpt-oss-20b` as fallback. If an older `.env` still names the Llama models, update those two lines.
 
 ### 2. Run the API
 
@@ -130,10 +130,11 @@ Run from the repository root, because settings are read from `./.env`.
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install fastapi "uvicorn[standard]" pydantic-settings groq sse-starlette pinecone \
-  sentence-transformers "sqlalchemy[asyncio]" asyncpg alembic greenlet "redis[hiredis]" httpx python-dotenv
+pip install -e ".[dev]"
 uvicorn apps.api.main:app --reload --port 8000
 ```
+
+On Linux, run `pip install torch --index-url https://download.pytorch.org/whl/cpu` first to avoid downloading the CUDA build of PyTorch.
 
 On startup the log shows which services connected. Lines like `✗ Pinecone unavailable` or `✗ PostgreSQL unavailable` are expected without those services.
 
@@ -154,6 +155,25 @@ Create a Pinecone index with dimension 384 and cosine metric, set `PINECONE_API_
 ```bash
 PYTHONPATH=. python packages/legal-data/embed_laws.py
 ```
+
+### Run with Docker
+
+```bash
+cp .env.example .env   # then add your keys
+docker compose up --build
+```
+
+The API image runs Alembic migrations when `DATABASE_URL` points at a reachable database and skips them otherwise. CI builds both images on every push.
+
+## Tests and checks
+
+```bash
+pytest          # 24 tests: jurisdiction, keyword retrieval, validation, reasoning, API flow
+ruff check . && ruff format --check .
+mypy .
+```
+
+The tests need no API keys or services. The LLM is stubbed, and the API runs in its degraded mode (keyword retrieval, in-memory cases).
 
 ## API
 
@@ -186,6 +206,7 @@ andhakaanun/
 │           ├── results/[id]/     analysis page and follow-up form
 │           └── api/proxy/        forwards browser requests to the API
 ├── packages/legal-data/          laws.json and the Pinecone embedding script
+├── tests/                        pytest suite (no services or keys needed)
 ├── docs/screenshots/
 └── docker-compose.yml
 ```
@@ -195,7 +216,6 @@ andhakaanun/
 - **Small, IPC-era law set.** Retrieval covers 15 sections in `laws.json` (17 in the keyword fallback) across the IPC, IT Act, Motor Vehicles Act and Domestic Violence Act. The IPC was replaced by the Bharatiya Nyaya Sanhita on 1 July 2024, and the BNS equivalents are not mapped yet.
 - **Score is neutral under fallback.** Keyword-fallback results get a fixed 0.50 similarity score; real scores need the Pinecone index.
 - **Memory-only without a database.** Cases are lost when the API restarts.
-- **Setup files need work.** `pyproject.toml` can't be installed with pip as written (Poetry-style tables, and `groq` and `sse-starlette` are missing), so use the install command above. The API Dockerfile copies a root `alembic.ini` that doesn't exist, and `docker-compose.yml` has an invalid `depends_on`. The CI workflow runs `pytest` against a `tests/` folder that doesn't exist yet.
 - **Rate limiting isn't enforced.** `RATE_LIMIT_PER_HOUR` is read into settings but nothing uses it yet.
 
 ## Disclaimer
@@ -204,7 +224,7 @@ AndhaKaanun is an educational project. Its output is AI-generated and is **not l
 
 ## License
 
-MIT, as declared in [`pyproject.toml`](pyproject.toml).
+[MIT](LICENSE)
 
 ## Author
 

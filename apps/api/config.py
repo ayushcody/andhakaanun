@@ -4,7 +4,6 @@ Loads and validates all environment variables at startup.
 """
 
 from functools import lru_cache
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -27,10 +26,10 @@ class Settings(BaseSettings):
 
     # --- Groq ---
     # Set GROQ_API_KEY, GROQ_MODEL_PRIMARY, GROQ_MODEL_FALLBACK in .env
-    # Free models: llama-3.3-70b-versatile, llama-3.1-8b-instant, mixtral-8x7b-32768, gemma2-9b-it
+    # List the models your key can use: GET https://api.groq.com/openai/v1/models
     groq_api_key: str
-    groq_model_primary: str = "llama-3.3-70b-versatile"  # override via GROQ_MODEL_PRIMARY
-    groq_model_fallback: str = "llama-3.1-8b-instant"    # override via GROQ_MODEL_FALLBACK
+    groq_model_primary: str = "openai/gpt-oss-120b"  # override via GROQ_MODEL_PRIMARY
+    groq_model_fallback: str = "openai/gpt-oss-20b"  # override via GROQ_MODEL_FALLBACK
     groq_timeout_seconds: int = 30
     groq_temperature: float = 0.1
     groq_max_tokens: int = 4096
@@ -72,7 +71,7 @@ class Settings(BaseSettings):
         return url
 
 
-@lru_cache()
+@lru_cache
 def get_settings() -> Settings:
     """Singleton settings instance — cached after first call."""
     return Settings()
