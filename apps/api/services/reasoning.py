@@ -97,6 +97,12 @@ class ReasoningEngine:
             )
 
             raw_output = result["data"]
+            # Some models occasionally wrap the object in a one-element array.
+            if isinstance(raw_output, list) and raw_output and isinstance(raw_output[0], dict):
+                logger.warning("LLM returned a JSON array; using its first object")
+                raw_output = raw_output[0]
+            if not isinstance(raw_output, dict):
+                raise ValueError(f"LLM returned {type(raw_output).__name__}, expected a JSON object")
             metadata["model"] = result["model"]
             metadata["llm_latency_ms"] = result["latency_ms"]
             metadata["token_count"] = result.get("token_count", 0)
